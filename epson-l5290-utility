@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+import tkinter as tk
+from tkinter import ttk, messagebox
+import subprocess
+import threading
+
+class EpsonControlCenter:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Epson EcoTank L5290 Control Center")
+        self.root.geometry("520x620")
+        self.root.resizable(False, False)
+        
+        # Color Palette - Modern Sleek Dark Mode
+        self.bg_dark = "#12131C"
+        self.card_bg = "#1E202F"
+        self.card_border = "#2B2D42"
+        self.accent_blue = "#4CC9F0"
+        self.accent_green = "#06D6A0"
+        self.accent_yellow = "#FFD166"
+        self.accent_purple = "#7209B7"
+        self.text_main = "#F8F9FA"
+        self.text_muted = "#8D99AE"
+        
+        self.root.configure(bg=self.bg_dark)
+        self.setup_ui()
+        self.update_status()
+
+    def setup_ui(self):
+        # Header Banner
+        header = tk.Frame(self.root, bg=self.card_bg, height=90, bd=0, highlightthickness=1, highlightbackground=self.card_border)
+        header.pack(fill="x", padx=15, pady=15)
+        header.pack_propagate(False)
+        
+        title_icon = tk.Label(header, text="🖨️", font=("Segoe UI Emoji", 28), bg=self.card_bg)
+        title_icon.pack(side="left", padx=(15, 5), pady=10)
+        
+        title_frame = tk.Frame(header, bg=self.card_bg)
+        title_frame.pack(side="left", fill="y", pady=15, padx=5)
+        
+        title_text = tk.Label(title_frame, text="Epson EcoTank L5290", font=("Helvetica", 16, "bold"), fg=self.text_main, bg=self.card_bg)
+        title_text.pack(anchor="w")
+        
+        subtitle_text = tk.Label(title_frame, text="Linux Maintenance & Driver Suite", font=("Helvetica", 9), fg=self.text_muted, bg=self.card_bg)
+        subtitle_text.pack(anchor="w")
+        
+        self.badge_status = tk.Label(header, text="🟢 Online", font=("Helvetica", 9, "bold"), fg="#06D6A0", bg="#103A31", padx=10, pady=4)
+        self.badge_status.pack(side="right", padx=15)
+        
+        # Action Container Frame
+        container = tk.Frame(self.root, bg=self.bg_dark)
+        container.pack(fill="both", expand=True, padx=15)
+        
+        # Buttons Setup
+        self.create_action_card(container, "🧽", "Head Cleaning", "Pembersihan kepala cetak secara mendalam", self.accent_green, self.run_head_cleaning)
+        self.create_action_card(container, "📝", "Nozzle Check Pattern", "Cetak pola tes nozzle untuk cek garis putus", self.accent_yellow, self.run_nozzle_check)
+        self.create_action_card(container, "📄", "Print Test Page", "Cetak halaman pengujian sistem CUPS", self.accent_blue, self.run_test_page)
+        self.create_action_card(container, "🔄", "Refresh Connection & Status", "Perbarui status antrean printer", self.accent_purple, self.update_status)
+        
+        # Output Log Window
+        log_frame = tk.Frame(self.root, bg=self.card_bg, bd=0, highlightthickness=1, highlightbackground=self.card_border)
+        log_frame.pack(fill="both", expand=True, padx=15, pady=(10, 15))
+        
+        log_label = tk.Label(log_frame, text="📋 Log Aktivitas Sistem", font=("Helvetica", 9, "bold"), fg=self.text_muted, bg=self.card_bg)
+        log_label.pack(anchor="w", padx=10, pady=(8, 4))
+        
+        self.log_text = tk.Text(log_frame, height=5, font=("Consolas", 9), fg=self.accent_blue, bg="#161722", bd=0, padx=8, pady=8, insertbackground=self.text_main)
+        self.log_text.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self.log("Sistem Siap. Silakan pilih opsi pemeliharaan di atas.")
+
+    def create_action_card(self, parent, icon, title, desc, color, command):
+        card = tk.Frame(parent, bg=self.card_bg, bd=0, highlightthickness=1, highlightbackground=self.card_border, cursor="hand2")
+        card.pack(fill="x", pady=6)
+        
+        # Color Stripe Indicator on the left
+        stripe = tk.Frame(card, bg=color, width=5)
+        stripe.pack(side="left", fill="y")
+        
+        icon_lbl = tk.Label(card, text=icon, font=("Segoe UI Emoji", 18), bg=self.card_bg)
+        icon_lbl.pack(side="left", padx=(12, 8), pady=10)
+        
+        info_frame = tk.Frame(card, bg=self.card_bg)
+        info_frame.pack(side="left", fill="y", pady=8)
+        
+        t_lbl = tk.Label(info_frame, text=title, font=("Helvetica", 11, "bold"), fg=self.text_main, bg=self.card_bg)
+        t_lbl.pack(anchor="w")
+        
+        d_lbl = tk.Label(info_frame, text=desc, font=("Helvetica", 8), fg=self.text_muted, bg=self.card_bg)
+        d_lbl.pack(anchor="w")
+        
+        # Bind Click Events to Entire Card & Children
+        for widget in (card, icon_lbl, info_frame, t_lbl, d_lbl):
+            widget.bind("<Button-1>", lambda e, cmd=command: cmd())
+            widget.bind("<Enter>", lambda e, c=card: c.configure(bg="#26283B"))
+            widget.bind("<Leave>", lambda e, c=card: c.configure(bg=self.card_bg))
+
+    def log(self, text):
+        self.log_text.insert(tk.END, f"> {text}\n")
+        self.log_text.see(tk.END)
+
+    def exec_async(self, cmd, success_msg):
+        def task():
+            try:
+                res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                out = res.stdout if res.returncode == 0 else res.stderr
+                self.root.after(0, lambda: self.log(f"Output: {out.strip()}"))
+                self.root.after(0, lambda: self.log(success_msg))
+                self.root.after(0, lambda: messagebox.showinfo("Informasi", success_msg))
+            except Exception as e:
+                self.root.after(0, lambda: self.log(f"Error: {str(e)}"))
+        threading.Thread(target=task, daemon=True).start()
+
+    def run_head_cleaning(self):
+        self.log("Memulai proses Pembersihan Kepala Cetak (Head Cleaning)...")
+        self.exec_async("escputil --clean-head --printer-name L5290_Series", "Perintah Head Cleaning berhasil dikirim ke printer L5290!")
+
+    def run_nozzle_check(self):
+        self.log("Mengirim perintah Cetak Pola Nozzle Check...")
+        self.exec_async("escputil --nozzle-check --printer-name L5290_Series", "Perintah Nozzle Check berhasil dikirim ke printer!")
+
+    def run_test_page(self):
+        self.log("Mencetak halaman tes CUPS...")
+        self.exec_async("lpr -P L5290_Series /usr/share/cups/data/testprint.ps || lpr -P L5290_Series /usr/share/cups/data/testprint", "Halaman tes berhasil dikirim ke antrean cetak!")
+
+    def update_status(self):
+        self.log("Memeriksa status koneksi printer L5290_Series...")
+        try:
+            res = subprocess.run("lpstat -p L5290_Series", shell=True, capture_output=True, text=True)
+            if "idle" in res.stdout or "printing" in res.stdout:
+                self.badge_status.config(text="🟢 Online & Siap", fg="#06D6A0", bg="#103A31")
+                self.log("Status: Printer Terhubung dan Siap Digunakan.")
+            else:
+                self.badge_status.config(text="🟡 Offline / Pending", fg="#FFD166", bg="#3A3110")
+                self.log(f"Status Printer: {res.stdout.strip() if res.stdout else 'Tidak aktif'}")
+        except Exception as e:
+            self.badge_status.config(text="🔴 Error", fg="#FF4D6D", bg="#3A1015")
+            self.log(f"Gagal memeriksa status: {str(e)}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = EpsonControlCenter(root)
+    root.mainloop()

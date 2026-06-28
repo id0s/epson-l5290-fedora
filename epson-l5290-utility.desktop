@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Epson L5290 Utility
+Comment=Head Cleaning and Printer Maintenance Utility for Epson L5290
+Exec=epson-l5290-utility
+Icon=printer
+Terminal=false
+Categories=Utility;Printing;GTK;
